@@ -5,25 +5,41 @@ using DAMTesting2.BUS.ViewModel;
 using DAMTesting2.BUS.Interface;
 using DAMTesting2.DAL.Repositories.Implement;
 using DAMTesting2.DAL;
+using System.Windows.Forms;
+using System.Collections.Generic;
 
 namespace DAMTesting2.PL
 {
     public partial class Form1 : Form
     {
+        // Khai báo các danh sách ViewModel
         List<PhimVM> _phims;
+        List<TheLoaiVM> _theLoai;
+
+        // Khai báo các service
+        ITheLoaiService _theLoaiService;
         IPhimService _phimService;
         int _maPhimChon;
+        int _maTheLoaiChon;
 
         public Form1()
         {
             var phimRepo = new PhimRepo();
+            var theLoaiRepo = new TheLoaiRepo(new AppDBContext());
 
+            // Khởi tạo các service
             _phimService = new PhimServices(phimRepo, new AppDBContext());
+            _theLoaiService = new TheLoaiService(theLoaiRepo);
 
             InitializeComponent();
             LoadTheLoaiCheckBoxes();
             LoadDataForm();
             LoadGridData();
+            LoadDataFormTheLoai();
+            LoadGridDataTheLoai();
+
+
+
         }
 
         private void LoadDataForm()
@@ -48,6 +64,33 @@ namespace DAMTesting2.PL
             cb_trangthai.SelectedIndex = 0;
 
 
+        }
+
+        private void LoadDataFormTheLoai()
+        {
+            dgv_theloai.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgv_theloai.Columns.Clear();
+            dgv_theloai.Columns.Add("clm1", "STT");
+            dgv_theloai.Columns.Add("clm2", "Tên Thể Loại");
+            dgv_theloai.Columns.Add("clm3", "Các Phim của Thể Loại");
+        }
+
+        private void LoadGridDataTheLoai()
+        {
+            _theLoai = _theLoaiService.GetAll();
+            dgv_theloai.Rows.Clear();
+
+            foreach (var theLoai in _theLoai)
+            {
+                var phimList = _theLoaiService.GetPhimByTheLoaiId(theLoai.TheLoaiId);
+                string phimNames = string.Join(", ", phimList.Select(p => p.TenPhim).ToArray());
+
+                dgv_theloai.Rows.Add(
+                    (_theLoai.IndexOf(theLoai) + 1),
+                    theLoai.TenTheLoai,
+                    phimNames
+                );
+            }
         }
 
         private void LoadGridData()
@@ -127,7 +170,7 @@ namespace DAMTesting2.PL
 
         private void btn_them_Click(object sender, EventArgs e)
         {
-           bool isThoiLuongValid = int.TryParse(txt_thoiluong.Text.Trim(), out int thoiLuong);
+            bool isThoiLuongValid = int.TryParse(txt_thoiluong.Text.Trim(), out int thoiLuong);
             var trangThaiString = cb_trangthai.SelectedItem?.ToString();
             int trangThai = -1;
 
@@ -160,7 +203,7 @@ namespace DAMTesting2.PL
                     ThoiLuong = thoiLuong,
                     TrangThai = trangThai,
                     MoTa = txt_mota.Text.Trim(),
-                    TheLoaiIds = selectedTheLoaiIds // Cập nhật danh sách thể loại
+                    TheLoaiIds = selectedTheLoaiIds
                 };
 
                 var result = _phimService.Create(phimCreate);
@@ -211,7 +254,7 @@ namespace DAMTesting2.PL
                 ThoiLuong = thoiLuong,
                 TrangThai = trangThai,
                 MoTa = txt_mota.Text.Trim(),
-                TheLoaiIds = selectedTheLoaiIds // Cập nhật danh sách thể loại
+                TheLoaiIds = selectedTheLoaiIds
             };
 
             var result = _phimService.Update(phimUpdate);
@@ -283,6 +326,145 @@ namespace DAMTesting2.PL
             LoadGridData();
         }
 
+        private void btn_themtheloai_Click(object sender, EventArgs e)
+        {
+            var tenTheLoai = txt_theloai.Text.Trim();
 
+            if (string.IsNullOrEmpty(tenTheLoai))
+            {
+                MessageBox.Show("Tên thể loại không được để trống.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var theLoaiVM = new TheLoaiVM
+            {
+                TenTheLoai = tenTheLoai
+            };
+            var result = _theLoaiService.Create(theLoaiVM);
+            MessageBox.Show(result, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            LoadGridDataTheLoai();
+        }
+
+        private void btn_suatheloai_Click(object sender, EventArgs e)
+        {
+            if (_maPhimChon == 0)
+            {
+                MessageBox.Show("Vui lòng chọn thể loại cần sửa.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var tenTheLoai = txt_theloai.Text.Trim();
+
+            if (string.IsNullOrEmpty(tenTheLoai))
+            {
+                MessageBox.Show("Tên thể loại không được để trống.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var theLoaiVM = new TheLoaiVM
+            {
+                TheLoaiId = _maPhimChon,
+                TenTheLoai = tenTheLoai
+            };
+
+            var result = _theLoaiService.Update(theLoaiVM);
+            string msg = result ? "Cập nhật thành công" : "Cập nhật thất bại";
+            MessageBox.Show(msg, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            LoadGridData();
+        }
+
+        private void btn_xoatheloai_Click(object sender, EventArgs e)
+        {
+            if (_maPhimChon == 0)
+            {
+                MessageBox.Show("Vui lòng chọn thể loại cần xóa.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (MessageBox.Show("Bạn có chắc chắn muốn xóa thể loại này?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                var result = _theLoaiService.Delete(_maPhimChon);
+                string msg = result ? "Xóa thành công" : "Xóa thất bại";
+                MessageBox.Show(msg, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                LoadGridData();
+            }
+        }
+
+        private void dgv_theloai_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            var index = e.RowIndex;
+
+            if (index < 0 || index >= _theLoai.Count)
+            {
+                _maTheLoaiChon = 0;
+                return;
+            }
+
+            var theLoaiChon = _theLoai.ElementAt(index);
+            _maTheLoaiChon = theLoaiChon.TheLoaiId;
+
+            txt_theloai.Text = theLoaiChon.TenTheLoai;
+
+            LoadAndUpdatePhimCheckBoxes(_maTheLoaiChon);
+        }
+
+        private void LoadAndUpdatePhimCheckBoxes(int theLoaiId)
+        {
+            var allPhims = _phimService.GetList();
+
+            var phimsByTheLoai = _theLoaiService.GetPhimByTheLoaiId(theLoaiId);
+            flowLayoutPanelPhimByTheLoai.Controls.Clear();
+
+            foreach (var phim in allPhims)
+            {
+                CheckBox checkBox = new CheckBox
+                {
+                    Text = phim.TenPhim,
+                    Tag = phim.PhimId,
+                    AutoSize = true,
+                    Checked = phimsByTheLoai.Any(p => p.PhimId == phim.PhimId)
+                };
+
+                flowLayoutPanelPhimByTheLoai.Controls.Add(checkBox);
+            }
+        }
+
+        private void tabControl_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (tabControl.SelectedTab == tabPhim)
+            {
+                LoadGridData();
+            }
+            else if (tabControl.SelectedTab == tabTheLoai)
+            {
+            }
+        }
+
+        private void dgv_phim_Click(object sender, DataGridViewCellEventArgs e)
+        {
+            var index = e.RowIndex;
+
+            if (index < 0 || index >= _phims.Count)
+            {
+                _maPhimChon = 0;
+                return;
+            }
+
+            var phimChon = _phims.ElementAt(index);
+
+            _maPhimChon = phimChon.PhimId;
+            txt_ten.Text = phimChon.TenPhim;
+            txt_thoigian.Text = phimChon.ThoiGianPhatHanh?.ToShortDateString();
+            txt_daodien.Text = phimChon.DaoDien;
+            txt_thoiluong.Text = phimChon.ThoiLuong.ToString();
+            txt_mota.Text = phimChon.MoTa;
+            cb_trangthai.SelectedItem = GetStatusName(phimChon.TrangThai ?? 0);
+            foreach (CheckBox checkBox in flowLayoutPanelTheLoais.Controls)
+            {
+                checkBox.Checked = phimChon.TheLoaiIds.Contains((int)checkBox.Tag);
+            }
+        }
     }
 }
