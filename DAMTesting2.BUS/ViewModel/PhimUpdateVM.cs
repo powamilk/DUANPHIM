@@ -22,7 +22,7 @@ namespace DAMTesting2.BUS.ViewModel
         public int? TrangThai { get; set; }
 
         public string? MoTa { get; set; }
+
         public List<int> TheLoaiIds { get; set; } = new List<int>();
-        public List<TheLoai> TheLoais { get; set; } = new List<TheLoai>();
     }
 }

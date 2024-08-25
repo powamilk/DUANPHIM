@@ -1,30 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using DAMTesting2.BUS.Interface;
+﻿using DAMTesting2.BUS.Interface;
 using DAMTesting2.BUS.Utils;
 using DAMTesting2.BUS.ViewModel;
 using DAMTesting2.DAL;
 using DAMTesting2.DAL.Entities;
-using DAMTesting2.DAL.Repositories.Implement;
 using DAMTesting2.DAL.Repositories.Interface;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.EntityFrameworkCore;
 
 namespace DAMTesting2.BUS.Implement
 {
     public class PhimServices : IPhimService
     {
         private readonly IPhimRepo _repo;
-        private readonly AppDbContext _appDbContext;
+        private readonly AppDBContext _appDbContext;
 
-        public PhimServices()
+        public PhimServices(IPhimRepo repo, AppDBContext appDbContext)
         {
-            _repo = new PhimRepo();
-            _appDbContext = new AppDbContext();
+            _repo = repo;
+            _appDbContext = appDbContext;
         }
 
         public string Create(PhimCreateVM createVM)
@@ -97,6 +91,7 @@ namespace DAMTesting2.BUS.Implement
                 TenTheLoai = tl.TenTheLoai
             }).ToList();
         }
+
         public TheLoai GetTheLoaiById(int theLoaiId)
         {
             return _appDbContext.TheLoais.Find(theLoaiId);

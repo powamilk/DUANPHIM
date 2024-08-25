@@ -3,6 +3,8 @@ using DAMTesting2.BUS.Utils;
 using DAMTesting2.BUS.Utils.Status;
 using DAMTesting2.BUS.ViewModel;
 using DAMTesting2.BUS.Interface;
+using DAMTesting2.DAL.Repositories.Implement;
+using DAMTesting2.DAL;
 
 namespace DAMTesting2.PL
 {
@@ -14,7 +16,10 @@ namespace DAMTesting2.PL
 
         public Form1()
         {
-            _phimService = new PhimServices();
+            var phimRepo = new PhimRepo();
+
+            _phimService = new PhimServices(phimRepo, new AppDBContext());
+
             InitializeComponent();
             LoadTheLoaiCheckBoxes();
             LoadDataForm();
@@ -53,8 +58,10 @@ namespace DAMTesting2.PL
             foreach (var phim in _phims)
             {
                 string trangThai = GetStatusName(phim.TrangThai ?? 0);
-
-                string theLoais = string.Join(", ", phim.TheLoais);
+                var theLoaiNames = phim.TheLoaiIds
+                    .Select(id => _phimService.GetTheLoaiName(id))
+                    .ToArray();
+                string theLoais = string.Join(", ", theLoaiNames);
 
                 dgv_phim.Rows.Add(
                     (_phims.IndexOf(phim) + 1),
@@ -72,15 +79,14 @@ namespace DAMTesting2.PL
 
         private void LoadTheLoaiCheckBoxes()
         {
-            var phimService = new PhimServices();
-            var theLoaiList = phimService.GetAllTheLoais();
+            var theLoaiList = _phimService.GetAllTheLoais();
 
             foreach (var theLoai in theLoaiList)
             {
                 CheckBox checkBox = new CheckBox
                 {
                     Text = theLoai.TenTheLoai,
-                    Tag = theLoai.TheLoaiId, 
+                    Tag = theLoai.TheLoaiId,
                     AutoSize = true
                 };
                 flowLayoutPanelTheLoais.Controls.Add(checkBox);
@@ -121,7 +127,7 @@ namespace DAMTesting2.PL
 
         private void btn_them_Click(object sender, EventArgs e)
         {
-            bool isThoiLuongValid = int.TryParse(txt_thoiluong.Text.Trim(), out int thoiLuong);
+           bool isThoiLuongValid = int.TryParse(txt_thoiluong.Text.Trim(), out int thoiLuong);
             var trangThaiString = cb_trangthai.SelectedItem?.ToString();
             int trangThai = -1;
 
@@ -153,17 +159,9 @@ namespace DAMTesting2.PL
                     DaoDien = txt_daodien.Text.Trim(),
                     ThoiLuong = thoiLuong,
                     TrangThai = trangThai,
-                    MoTa = txt_mota.Text.Trim()
+                    MoTa = txt_mota.Text.Trim(),
+                    TheLoaiIds = selectedTheLoaiIds // Cập nhật danh sách thể loại
                 };
-
-                foreach (var theLoaiId in selectedTheLoaiIds)
-                {
-                    var theLoai = _phimService.GetTheLoaiById(theLoaiId);
-                    if (theLoai != null)
-                    {
-                        phimCreate.TheLoais.Add(theLoai);
-                    }
-                }
 
                 var result = _phimService.Create(phimCreate);
                 MessageBox.Show(result, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -180,11 +178,25 @@ namespace DAMTesting2.PL
             }
 
             bool isThoiLuongValid = int.TryParse(txt_thoiluong.Text, out int thoiLuong);
-            bool isTrangThaiValid = int.TryParse(cb_trangthai.Text, out int trangThai);
+            var trangThaiString = cb_trangthai.SelectedItem?.ToString();
+            int trangThai = -1;
 
-            if (!isThoiLuongValid || thoiLuong <= 0 || !isTrangThaiValid || trangThai <= 0)
+            if (!string.IsNullOrEmpty(trangThaiString))
+            {
+                if (trangThaiString.Contains("Đang Phát Hành")) trangThai = (int)StatusEnum.DangPhatHanh;
+                else if (trangThaiString.Contains("Tạm Dừng")) trangThai = (int)StatusEnum.TamDung;
+                else if (trangThaiString.Contains("Đã Ngừng Phát Hành")) trangThai = (int)StatusEnum.DaNgungPhatHanh;
+            }
+            if (!isThoiLuongValid || thoiLuong <= 0 || trangThai <= 0)
             {
                 MessageBox.Show("Các trường số phải là số nguyên dương.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            bool isThoiGianValid = DateTime.TryParseExact(txt_thoigian.Text.Trim(), "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out DateTime thoiGianPhatHanh);
+            if (!isThoiGianValid)
+            {
+                MessageBox.Show("Thời gian phát hành không hợp lệ. Vui lòng nhập theo định dạng dd/MM/yyyy.", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -193,13 +205,13 @@ namespace DAMTesting2.PL
             var phimUpdate = new PhimUpdateVM
             {
                 PhimId = _maPhimChon,
-                TenPhim = txt_ten.Text,
-                ThoiGianPhatHanh = DateOnly.FromDateTime(DateTime.Parse(txt_thoigian.Text)),
-                DaoDien = txt_daodien.Text,
+                TenPhim = txt_ten.Text.Trim(),
+                ThoiGianPhatHanh = DateOnly.FromDateTime(thoiGianPhatHanh),
+                DaoDien = txt_daodien.Text.Trim(),
                 ThoiLuong = thoiLuong,
                 TrangThai = trangThai,
-                MoTa = txt_mota.Text,
-                TheLoaiIds = selectedTheLoaiIds
+                MoTa = txt_mota.Text.Trim(),
+                TheLoaiIds = selectedTheLoaiIds // Cập nhật danh sách thể loại
             };
 
             var result = _phimService.Update(phimUpdate);
@@ -258,11 +270,10 @@ namespace DAMTesting2.PL
             txt_daodien.Text = phimChon.DaoDien;
             txt_thoiluong.Text = phimChon.ThoiLuong.ToString();
             txt_mota.Text = phimChon.MoTa;
-            cb_trangthai.Text = phimChon.TrangThai.ToString();
-
+            cb_trangthai.SelectedItem = GetStatusName(phimChon.TrangThai ?? 0);
             foreach (CheckBox checkBox in flowLayoutPanelTheLoais.Controls)
             {
-                checkBox.Checked = phimChon.TheLoais.Contains(checkBox.Text);
+                checkBox.Checked = phimChon.TheLoaiIds.Contains((int)checkBox.Tag);
             }
         }
 

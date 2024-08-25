@@ -21,27 +21,37 @@ namespace DAMTesting2.BUS.Utils
                 ThoiLuong = entity.ThoiLuong,
                 TrangThai = entity.TrangThai,
                 MoTa = entity.MoTa,
-                TheLoais = entity.TheLoais.Select(tl => tl.TenTheLoai).ToList()
+                TheLoaiIds = entity.TheLoaiCuaPhims.Select(tlcp => tlcp.TheLoaiId).ToList() // Lấy danh sách TheLoaiIds từ TheLoaiCuaPhims
             };
         }
 
         public static Phim MapCreateVMToEntity(PhimCreateVM createVM)
         {
-            return new Phim()
+            var phim = new Phim()
             {
                 TenPhim = createVM.TenPhim,
                 ThoiGianPhatHanh = createVM.ThoiGianPhatHanh,
                 DaoDien = createVM.DaoDien,
                 ThoiLuong = createVM.ThoiLuong,
                 TrangThai = createVM.TrangThai,
-                MoTa = createVM.MoTa,
-                TheLoais = createVM.TheLoaiIds.Select(id => new TheLoai { TheLoaiId = id }).ToList()
+                MoTa = createVM.MoTa
             };
+
+            foreach (var theLoaiId in createVM.TheLoaiIds)
+            {
+                phim.TheLoaiCuaPhims.Add(new TheLoaiCuaPhim
+                {
+                    TheLoaiId = theLoaiId,
+                    Phim = phim
+                });
+            }
+
+            return phim;
         }
 
         public static Phim MapUpdateVMToEntity(PhimUpdateVM updateVM)
         {
-            return new Phim()
+            var phim = new Phim()
             {
                 PhimId = updateVM.PhimId,
                 TenPhim = updateVM.TenPhim,
@@ -49,9 +59,19 @@ namespace DAMTesting2.BUS.Utils
                 DaoDien = updateVM.DaoDien,
                 ThoiLuong = updateVM.ThoiLuong,
                 TrangThai = updateVM.TrangThai,
-                MoTa = updateVM.MoTa,
-                TheLoais = updateVM.TheLoaiIds.Select(id => new TheLoai { TheLoaiId = id }).ToList()
+                MoTa = updateVM.MoTa
             };
+
+            foreach (var theLoaiId in updateVM.TheLoaiIds)
+            {
+                phim.TheLoaiCuaPhims.Add(new TheLoaiCuaPhim
+                {
+                    TheLoaiId = theLoaiId,
+                    Phim = phim
+                });
+            }
+
+            return phim;
         }
     }
 }
